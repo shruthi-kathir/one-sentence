@@ -1,0 +1,17 @@
+{
+  "name": "one-sentence-a-day",
+  "version": "1.0.0",
+  "description": "Sign in with Google, write one sentence per day, see everyone's sentences.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --env-file=.env server.js"
+  },
+  "engines": {
+    "node": ">=20.6"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.5.0",
+    "express": "^4.21.0",
+    "google-auth-library": "^9.14.0"
+  }
+}

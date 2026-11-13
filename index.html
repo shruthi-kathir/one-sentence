@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>One Sentence</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #1a1a1a;
+      --muted: #7a7a7a;
+      --line: #ececec;
+      --accent: #1a1a1a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.5;
+    }
+    .hidden { display: none !important; }
+
+    /* ---- login ---- */
+    #login {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 24px;
+      text-align: center;
+    }
+    #login h1 { font-size: 28px; font-weight: 600; margin: 0; letter-spacing: -0.5px; }
+    #login p { margin: 0 0 18px; color: var(--muted); }
+    #login-error { color: #b3261e; font-size: 14px; min-height: 20px; margin-top: 8px; }
+
+    /* ---- dashboard ---- */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--line);
+    }
+    header .brand { font-weight: 600; letter-spacing: -0.3px; }
+    .me { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); }
+    .me img { width: 30px; height: 30px; border-radius: 50%; }
+    .link-btn {
+      background: none; border: none; color: var(--muted);
+      font: inherit; font-size: 14px; cursor: pointer; text-decoration: underline;
+    }
+    .link-btn:hover { color: var(--text); }
+
+    main { max-width: 640px; margin: 0 auto; padding: 32px 20px 64px; }
+
+    .daynav {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    .daynav h2 { margin: 0; font-size: 18px; font-weight: 600; text-align: center; }
+    .daynav small { display: block; font-weight: 400; color: var(--muted); font-size: 13px; }
+    .daynav button {
+      border: 1px solid var(--line); background: #fff; border-radius: 8px;
+      width: 36px; height: 36px; font-size: 16px; cursor: pointer; color: var(--text);
+    }
+    .daynav button:disabled { opacity: 0.35; cursor: default; }
+
+    .composer {
+      border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 28px;
+    }
+    .composer label { display: block; font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+    .composer textarea {
+      width: 100%; resize: none; border: 1px solid var(--line); border-radius: 8px;
+      padding: 10px 12px; font: inherit; outline: none; background: #fff; color: var(--text);
+    }
+    .composer textarea:focus { border-color: #b5b5b5; }
+    .composer .row { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+    .count { font-size: 13px; color: var(--muted); }
+    .composer .err { color: #b3261e; font-size: 13px; margin-top: 8px; min-height: 18px; }
+    .primary {
+      background: var(--accent); color: #fff; border: none; border-radius: 8px;
+      padding: 9px 18px; font: inherit; font-size: 14px; cursor: pointer;
+    }
+    .primary:disabled { opacity: 0.5; cursor: default; }
+    .done { color: var(--muted); font-size: 14px; }
+
+    .entry { display: flex; gap: 12px; padding: 16px 0; border-top: 1px solid var(--line); }
+    .entry img, .entry .ph {
+      width: 36px; height: 36px; border-radius: 50%; flex: none; background: var(--line);
+    }
+    .entry .who { font-size: 13px; color: var(--muted); }
+    .entry .who b { color: var(--text); font-weight: 600; }
+    .entry .sentence { margin-top: 2px; overflow-wrap: anywhere; }
+    .entry.mine .sentence { font-weight: 500; }
+    .empty { color: var(--muted); text-align: center; padding: 32px 0; border-top: 1px solid var(--line); }
+
+    /* ---- credits link (bottom right) ---- */
+    .credits-link {
+      position: fixed; right: 20px; bottom: 20px; z-index: 50;
+      background: #fff; color: var(--muted); border: 1px solid var(--line);
+      border-radius: 999px; padding: 8px 16px; font-size: 13px; text-decoration: none;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    }
+    .credits-link:hover { color: var(--text); border-color: #cfcfcf; }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN VIEW -->
+  <section id="login" class="hidden">
+    <h1>One Sentence</h1>
+    <p>One sentence a day. Everyone sees everyone's.</p>
+    <div id="g-button"></div>
+    <div id="login-error"></div>
+  </section>
+
+  <!-- DASHBOARD VIEW -->
+  <section id="dashboard" class="hidden">
+    <header>
+      <span class="brand">One Sentence</span>
+      <div class="me">
+        <img id="me-pic" alt="" referrerpolicy="no-referrer">
+        <span id="me-name"></span>
+        <button class="link-btn" id="logout">Sign out</button>
+      </div>
+    </header>
+
+    <main>
+      <div class="daynav">
+        <button id="prev" aria-label="Previous day">&larr;</button>
+        <h2 id="day-title"></h2>
+        <button id="next" aria-label="Next day">&rarr;</button>
+      </div>
+
+      <div class="composer hidden" id="composer">
+        <label for="sentence">What's your sentence for today?</label>
+        <textarea id="sentence" rows="2" maxlength="200" placeholder="Write one sentence…"></textarea>
+        <div class="row">
+          <span class="count" id="count">0 / 200</span>
+          <button class="primary" id="submit">Post</button>
+        </div>
+        <div class="err" id="err"></div>
+      </div>
+      <p class="done hidden" id="done">You've posted today's sentence. Come back tomorrow.</p>
+
+      <div id="entries"></div>
+    </main>
+  </section>
+
+  <!-- CREDITS LINK (bottom right) -->
+  <a class="credits-link" href="/credits">Credits</a>
+
+<script>
+  const $ = id => document.getElementById(id);
+  let viewDay = null;   // the day currently shown
+  let today = null;     // today's date according to the server
+
+  async function api(url, options) {
+    const res = await fetch(url, options);
+    let data = {};
+    try { data = await res.json(); } catch (_) {}
+    if (!res.ok) { const e = new Error(data.error || 'Request failed'); e.status = res.status; throw e; }
+    return data;
+  }
+
+  function show(view) {
+    $('login').classList.toggle('hidden', view !== 'login');
+    $('dashboard').classList.toggle('hidden', view !== 'dashboard');
+  }
+
+  // ---------- login ----------
+  async function initLogin() {
+    show('login');
+    const { clientId } = await api('/api/config');
+
+    const draw = () => {
+      if (!window.google || !google.accounts) return setTimeout(draw, 100);
+      google.accounts.id.initialize({ client_id: clientId, callback: onGoogleCredential });
+      google.accounts.id.renderButton($('g-button'), { theme: 'outline', size: 'large', text: 'signin_with' });
+    };
+    draw();
+  }
+
+  async function onGoogleCredential(response) {
+    $('login-error').textContent = '';
+    try {
+      await api('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: response.credential }),
+      });
+      await start();
+    } catch (e) {
+      $('login-error').textContent = e.message;
+    }
+  }
+
+  // ---------- dashboard ----------
+  function prettyDate(iso) {
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-IN', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
+    });
+  }
+
+  function shiftDay(iso, delta) {
+    const [y, m, d] = iso.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d + delta));
+    return dt.toISOString().slice(0, 10);
+  }
+
+  async function loadDay(day) {
+    const data = await api('/api/entries' + (day ? `?day=${day}` : ''));
+    viewDay = data.day;
+    today = data.today;
+
+    const isToday = viewDay === today;
+    $('day-title').innerHTML = '';
+    const title = document.createElement('span');
+    title.textContent = prettyDate(viewDay);
+    $('day-title').appendChild(title);
+    if (isToday) {
+      const small = document.createElement('small');
+      small.textContent = 'Today';
+      $('day-title').appendChild(small);
+    }
+    $('next').disabled = isToday;
+
+    const iPosted = data.entries.some(e => e.mine);
+    $('composer').classList.toggle('hidden', !(isToday && !iPosted));
+    $('done').classList.toggle('hidden', !(isToday && iPosted));
+
+    const list = $('entries');
+    list.innerHTML = '';
+    if (!data.entries.length) {
+      const p = document.createElement('div');
+      p.className = 'empty';
+      p.textContent = isToday ? 'No sentences yet today. Be the first.' : 'No sentences on this day.';
+      list.appendChild(p);
+      return;
+    }
+    for (const e of data.entries) {
+      const row = document.createElement('div');
+      row.className = 'entry' + (e.mine ? ' mine' : '');
+
+      if (e.picture) {
+        const img = document.createElement('img');
+        img.src = e.picture; img.alt = ''; img.referrerPolicy = 'no-referrer';
+        row.appendChild(img);
+      } else {
+        const ph = document.createElement('div'); ph.className = 'ph';
+        row.appendChild(ph);
+      }
+
+      const body = document.createElement('div');
+      const who = document.createElement('div');
+      who.className = 'who';
+      const b = document.createElement('b');
+      b.textContent = e.mine ? 'You' : e.name;
+      who.appendChild(b);
+      const sentence = document.createElement('div');
+      sentence.className = 'sentence';
+      sentence.textContent = e.sentence;   // textContent, so nobody can inject HTML
+      body.appendChild(who);
+      body.appendChild(sentence);
+      row.appendChild(body);
+      list.appendChild(row);
+    }
+  }
+
+  $('prev').onclick = () => loadDay(shiftDay(viewDay, -1)).catch(console.error);
+  $('next').onclick = () => { if (viewDay < today) loadDay(shiftDay(viewDay, 1)).catch(console.error); };
+
+  $('sentence').addEventListener('input', () => {
+    $('count').textContent = `${$('sentence').value.length} / 200`;
+  });
+
+  $('submit').onclick = async () => {
+    $('err').textContent = '';
+    $('submit').disabled = true;
+    try {
+      await api('/api/entries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sentence: $('sentence').value }),
+      });
+      $('sentence').value = '';
+      $('count').textContent = '0 / 200';
+      await loadDay(today);
+    } catch (e) {
+      $('err').textContent = e.message;
+      if (e.status === 409) await loadDay(today);
+    } finally {
+      $('submit').disabled = false;
+    }
+  };
+
+  $('logout').onclick = async () => {
+    try { await api('/api/logout', { method: 'POST' }); } catch (_) {}
+    if (window.google && google.accounts) google.accounts.id.disableAutoSelect();
+    await initLogin();
+  };
+
+  // ---------- start ----------
+  async function start() {
+    try {
+      const me = await api('/api/me');
+      $('me-name').textContent = me.name;
+      if (me.picture) $('me-pic').src = me.picture; else $('me-pic').classList.add('hidden');
+      show('dashboard');
+      await loadDay();
+    } catch (e) {
+      if (e.status === 401) await initLogin(); else console.error(e);
+    }
+  }
+
+  start();
+</script>
+</body>
+</html>
