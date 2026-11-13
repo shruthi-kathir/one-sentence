@@ -125,6 +125,7 @@
       <div class="me">
         <img id="me-pic" alt="" referrerpolicy="no-referrer">
         <span id="me-name"></span>
+        <a class="link-btn hidden" id="admin-link" href="/admin">Admin</a>
         <button class="link-btn" id="logout">Sign out</button>
       </div>
     </header>
@@ -310,6 +311,7 @@
     try {
       const me = await api('/api/me');
       $('me-name').textContent = me.name;
+      $('admin-link').classList.toggle('hidden', !me.isAdmin);
       if (me.picture) $('me-pic').src = me.picture; else $('me-pic').classList.add('hidden');
       show('dashboard');
       await loadDay();

@@ -17,6 +17,9 @@ const IS_PROD = process.env.NODE_ENV === 'production';
 const ALLOWED_EMAILS = (process.env.ALLOWED_EMAILS || '')
   .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 
+// The owner: this Google account can open /admin and see who signed in and what they posted.
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+
 if (!GOOGLE_CLIENT_ID) {
   console.error('Missing GOOGLE_CLIENT_ID. Copy .env.example to .env and fill it in.');
   process.exit(1);
@@ -46,6 +49,11 @@ db.exec(`
     user_id TEXT NOT NULL REFERENCES users(id),
     expires_at INTEGER NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS logins (   -- one row every time someone signs in (UTC time)
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `);
 
 const q = {
@@ -58,6 +66,17 @@ const q = {
   delSession: db.prepare('DELETE FROM sessions WHERE token = ?'),
   purgeSessions: db.prepare('DELETE FROM sessions WHERE expires_at < ?'),
   addEntry: db.prepare('INSERT INTO entries (user_id, day, sentence) VALUES (?, ?, ?)'),
+  addLogin: db.prepare('INSERT INTO logins (user_id) VALUES (?)'),
+  adminUsers: db.prepare(`
+    SELECT u.name, u.email, u.picture, u.created_at AS joined,
+      (SELECT MAX(at) FROM logins l WHERE l.user_id = u.id) AS last_login,
+      (SELECT COUNT(*) FROM logins l WHERE l.user_id = u.id) AS logins,
+      (SELECT COUNT(*) FROM entries e WHERE e.user_id = u.id) AS entries
+    FROM users u ORDER BY COALESCE(last_login, joined) DESC`),
+  adminEntries: db.prepare(`
+    SELECT e.day, e.sentence, e.created_at, u.name, u.email
+    FROM entries e JOIN users u ON u.id = e.user_id
+    ORDER BY e.id DESC LIMIT 2000`),
   entriesForDay: db.prepare(`
     SELECT e.user_id, e.sentence, e.created_at, u.name, u.picture
     FROM entries e JOIN users u ON u.id = e.user_id
@@ -104,6 +123,17 @@ function requireAuth(req, res, next) {
   next();
 }
 
+function isAdminUser(user) {
+  return !!ADMIN_EMAIL && !!user && user.email.toLowerCase() === ADMIN_EMAIL;
+}
+
+function requireAdmin(req, res, next) {
+  requireAuth(req, res, () => {
+    if (!isAdminUser(req.user)) return res.status(403).json({ error: 'Owner only' });
+    next();
+  });
+}
+
 // ---------- app ----------
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 const app = express();
@@ -112,6 +142,7 @@ app.use(express.json({ limit: '10kb' }));
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.get('/credits', (req, res) => res.sendFile(path.join(__dirname, 'credits.html')));
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'admin.html'))); // the data itself is owner-only (see /api/admin)
 
 // The front end needs the client ID to draw the Google button.
 app.get('/api/config', (req, res) => res.json({ clientId: GOOGLE_CLIENT_ID }));
@@ -119,7 +150,7 @@ app.get('/api/config', (req, res) => res.json({ clientId: GOOGLE_CLIENT_ID }));
 // Who am I? (used on page load to decide: login page or dashboard)
 app.get('/api/me', requireAuth, (req, res) => {
   const { name, email, picture } = req.user;
-  res.json({ name, email, picture });
+  res.json({ name, email, picture, isAdmin: isAdminUser(req.user) });
 });
 
 // Google sends the browser a signed token; we verify it here.
@@ -136,6 +167,7 @@ app.post('/api/login', async (req, res) => {
     }
 
     q.upsertUser.run({ id: p.sub, email: p.email, name: p.name || p.email, picture: p.picture || null });
+    q.addLogin.run(p.sub);
 
     q.purgeSessions.run(Date.now());
     const token = crypto.randomBytes(32).toString('hex');
@@ -190,6 +222,15 @@ app.post('/api/entries', requireAuth, (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong' });
   }
+});
+
+// Owner-only: everyone who signed in, and every sentence with its time (times are UTC).
+app.get('/api/admin/overview', requireAdmin, (req, res) => {
+  res.json({
+    users: q.adminUsers.all(),
+    entries: q.adminEntries.all(),
+    today: todayStr(),
+  });
 });
 
 app.listen(PORT, () => console.log(`Running on http://localhost:${PORT} (day cutoff: ${TIMEZONE})`));

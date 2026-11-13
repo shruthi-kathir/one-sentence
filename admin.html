@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin · One Sentence</title>
+  <style>
+    :root { --bg: #ffffff; --text: #1a1a1a; --muted: #7a7a7a; --line: #ececec; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.5;
+    }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 24px; border-bottom: 1px solid var(--line);
+    }
+    header .brand { font-weight: 600; letter-spacing: -0.3px; }
+    header a { color: var(--muted); font-size: 14px; text-decoration: none; }
+    header a:hover { color: var(--text); }
+
+    main { max-width: 1000px; margin: 0 auto; padding: 32px 20px 80px; }
+    h1 { margin: 0 0 4px; font-size: 24px; letter-spacing: -0.5px; }
+    .sub { color: var(--muted); font-size: 14px; margin: 0 0 28px; }
+
+    .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 36px; }
+    .tile { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+    .tile .n { font-size: 28px; font-weight: 600; letter-spacing: -0.5px; }
+    .tile .l { font-size: 13px; color: var(--muted); }
+
+    h2 { font-size: 16px; margin: 0 0 12px; }
+    .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+    .bar h2 { margin: 0; }
+    input[type=search] {
+      border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px;
+      font: inherit; font-size: 14px; outline: none; min-width: 220px; background: #fff; color: var(--text);
+    }
+    input[type=search]:focus { border-color: #b5b5b5; }
+
+    .wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 40px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    th, td { padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    td.num { text-align: right; white-space: nowrap; }
+    td.when { white-space: nowrap; color: var(--muted); }
+    .who b { font-weight: 600; }
+    .who span { display: block; color: var(--muted); font-size: 12px; }
+    .sentence { min-width: 240px; overflow-wrap: anywhere; }
+    .msg { padding: 60px 0; text-align: center; color: var(--muted); }
+    .empty { padding: 24px 14px; color: var(--muted); text-align: center; }
+  </style>
+</head>
+<body>
+  <header>
+    <span class="brand">One Sentence · Admin</span>
+    <a href="/">&larr; Back to the site</a>
+  </header>
+
+  <main>
+    <div class="msg" id="msg">Loading…</div>
+
+    <div id="content" style="display:none">
+      <h1>Owner dashboard</h1>
+      <p class="sub">All times are India time (IST). Sign-ins are counted each time someone logs in with Google.</p>
+
+      <div class="tiles">
+        <div class="tile"><div class="n" id="t-users">0</div><div class="l">People signed up</div></div>
+        <div class="tile"><div class="n" id="t-entries">0</div><div class="l">Sentences in total</div></div>
+        <div class="tile"><div class="n" id="t-today">0</div><div class="l">Posted today</div></div>
+      </div>
+
+      <h2>People</h2>
+      <div class="wrap">
+        <table>
+          <thead><tr><th>Person</th><th>Last sign-in</th><th class="num">Sign-ins</th><th class="num">Sentences</th><th>Joined</th></tr></thead>
+          <tbody id="users"></tbody>
+        </table>
+      </div>
+
+      <div class="bar">
+        <h2>Every sentence</h2>
+        <input type="search" id="search" placeholder="Search name, email or text…">
+      </div>
+      <div class="wrap">
+        <table>
+          <thead><tr><th>Posted</th><th>Who</th><th>Sentence</th></tr></thead>
+          <tbody id="entries"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+<script>
+  const $ = id => document.getElementById(id);
+  let data = null;
+
+  // Database times are UTC like "2026-11-13 10:42:07"; show them in IST.
+  function fmt(s) {
+    if (!s) return '—';
+    const d = new Date(s.replace(' ', 'T') + 'Z');
+    if (isNaN(d)) return s;
+    return d.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric',
+      hour: 'numeric', minute: '2-digit', hour12: true,
+    });
+  }
+
+  function td(text, cls) {
+    const c = document.createElement('td');
+    if (cls) c.className = cls;
+    c.textContent = text;
+    return c;
+  }
+
+  function whoCell(name, email) {
+    const c = document.createElement('td');
+    c.className = 'who';
+    const b = document.createElement('b'); b.textContent = name;
+    const s = document.createElement('span'); s.textContent = email;
+    c.appendChild(b); c.appendChild(s);
+    return c;
+  }
+
+  function emptyRow(cols, text) {
+    const tr = document.createElement('tr');
+    const c = document.createElement('td');
+    c.colSpan = cols; c.className = 'empty'; c.textContent = text;
+    tr.appendChild(c);
+    return tr;
+  }
+
+  function renderUsers() {
+    const body = $('users');
+    body.innerHTML = '';
+    if (!data.users.length) return body.appendChild(emptyRow(5, 'Nobody has signed up yet.'));
+    for (const u of data.users) {
+      const tr = document.createElement('tr');
+      tr.appendChild(whoCell(u.name, u.email));
+      tr.appendChild(td(fmt(u.last_login || u.joined), 'when'));
+      tr.appendChild(td(String(u.logins), 'num'));
+      tr.appendChild(td(String(u.entries), 'num'));
+      tr.appendChild(td(fmt(u.joined), 'when'));
+      body.appendChild(tr);
+    }
+  }
+
+  function renderEntries() {
+    const term = $('search').value.trim().toLowerCase();
+    const body = $('entries');
+    body.innerHTML = '';
+    const rows = data.entries.filter(e =>
+      !term || (e.name + ' ' + e.email + ' ' + e.sentence).toLowerCase().includes(term));
+    if (!rows.length) return body.appendChild(emptyRow(3, term ? 'No matches.' : 'No sentences yet.'));
+    for (const e of rows) {
+      const tr = document.createElement('tr');
+      tr.appendChild(td(fmt(e.created_at), 'when'));
+      tr.appendChild(whoCell(e.name, e.email));
+      tr.appendChild(td(e.sentence, 'sentence'));
+      body.appendChild(tr);
+    }
+  }
+
+  async function load() {
+    try {
+      const res = await fetch('/api/admin/overview');
+      if (res.status === 401) { location.href = '/'; return; }
+      if (res.status === 403) { $('msg').textContent = 'This page is only for the owner.'; return; }
+      if (!res.ok) throw new Error('bad response');
+      data = await res.json();
+
+      $('t-users').textContent = data.users.length;
+      $('t-entries').textContent = data.entries.length;
+      $('t-today').textContent = data.entries.filter(e => e.day === data.today).length;
+      renderUsers();
+      renderEntries();
+      $('msg').style.display = 'none';
+      $('content').style.display = 'block';
+    } catch (err) {
+      $('msg').textContent = 'Could not load the admin data. Try refreshing.';
+    }
+  }
+
+  $('search').addEventListener('input', () => data && renderEntries());
+  load();
+</script>
+</body>
+</html>

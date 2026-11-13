@@ -49,6 +49,10 @@ Remember to add the final https address to **Authorized JavaScript origins** in 
 - Everyone signed in sees everyone's sentences. Use the arrows to browse earlier days.
 - To limit who can join, put emails in `ALLOWED_EMAILS` in `.env`.
 
+## Owner dashboard (/admin)
+
+Put the Gmail address you sign in with in `ADMIN_EMAIL` in `.env` and restart. After you sign in, an **Admin** link appears in the header (it opens `/admin`). It shows every person who signed up, when they last signed in (and how many times), and every sentence with the exact time it was posted, in India time. Anyone else who opens `/admin` is refused. Sign-ins are only recorded from the day you update; earlier people show their join time instead.
+
 ## Backups
 
 Copy `data.db` (and any `data.db-wal` file next to it) now and then, or stop the server and copy just `data.db`.
